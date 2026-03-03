@@ -1,0 +1,389 @@
+═══════════════════════════════════════════════════════════════════════════════
+  PLAYWRIGHT TESTING — VIVA PREPARATION NOTES
+  Project: Automated Testing of https://www.saucedemo.com
+═══════════════════════════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────────────────────────
+  WHAT IS PLAYWRIGHT?
+───────────────────────────────────────────────────────────────────────────────
+Playwright is an open-source automated testing framework developed by Microsoft.
+It allows you to write scripts that control a real browser (Chrome, Firefox,
+Safari) and test web applications automatically.
+
+Why use Playwright?
+  - Tests run across all major browsers (Chromium, Firefox, WebKit/Safari)
+  - Tests run fast and in parallel
+  - Catches bugs before users encounter them
+  - Reduces the need for manual click-through testing
+  - Tests act as living documentation of how the app is supposed to work
+
+
+───────────────────────────────────────────────────────────────────────────────
+  WHAT IS SAUCEDEMO?
+───────────────────────────────────────────────────────────────────────────────
+Saucedemo (https://www.saucedemo.com) is a fake e-commerce demo site built
+specifically for testing practice. It has:
+  - A login page (username: standard_user, password: secret_sauce)
+  - An inventory/products page with 6 items
+  - A shopping cart
+  - A checkout form (first name, last name, postal code)
+  - An order confirmation page
+
+
+───────────────────────────────────────────────────────────────────────────────
+  FEATURE 1 — ASSERTIONS
+  Files: tests/Assertions/login.spec.js
+         tests/Assertions/cart.spec.js
+         tests/Assertions/product.spec.js
+───────────────────────────────────────────────────────────────────────────────
+WHAT IS IT?
+  Assertions are checks that verify something on the page is correct.
+  In Playwright, assertions use the "expect()" function.
+
+COMMON ASSERTIONS USED:
+  expect(page).toHaveURL(...)         — checks the current URL
+  expect(element).toBeVisible()       — checks element is on screen
+  expect(element).toHaveText('...')   — checks exact text content
+  expect(element).toContainText('...')— checks text is contained
+  expect(element).toHaveCount(6)      — checks number of elements
+  expect(element).toBeEnabled()       — checks a button/input is clickable
+  expect(element).toBeEditable()      — checks an input can be typed into
+  expect(element).not.toBeVisible()   — checks element is NOT visible
+
+EXAMPLES FROM OUR PROJECT:
+  - After login, check the URL contains "inventory"
+  - Check exactly 6 products are shown on the inventory page
+  - Check the error message appears when wrong password is entered
+  - Check product prices all contain a "$" sign
+
+WHY IS IT USEFUL?
+  Assertions are the core of any test — without them, a test does nothing.
+  They confirm that what the user sees is what is expected. If a developer
+  changes something that breaks the login page, the assertion catches it
+  immediately instead of a user finding it in production.
+
+
+───────────────────────────────────────────────────────────────────────────────
+  FEATURE 2 — FIXTURES
+  Files: tests/Fixtures/fixtures.js
+         tests/Fixtures/cart.spec.js
+         tests/Fixtures/checkout-overview.spec.js
+         tests/Fixtures/locked-out.spec.js
+         tests/Fixtures/multi-cart.spec.js
+───────────────────────────────────────────────────────────────────────────────
+WHAT IS IT?
+  Fixtures are reusable pieces of setup code that run before a test begins.
+  Instead of writing the same login steps in every single test, you define
+  a fixture once and all tests that need it just request it by name.
+
+HOW DOES IT WORK?
+  You use test.extend() to create a custom fixture:
+
+    const test = base.test.extend({
+      loggedInPage: async ({ page }, use) => {
+        // Setup: go to site and login
+        await page.goto('https://www.saucedemo.com/');
+        await page.fill('#user-name', 'standard_user');
+        await page.fill('#password', 'secret_sauce');
+        await page.click('#login-button');
+        await use(page);   // <-- hand the ready page to the test
+        // Teardown happens automatically after this
+      }
+    });
+
+  Then in a test, just use { loggedInPage } instead of { page }:
+    test('My test', async ({ loggedInPage }) => {
+      // already logged in — no login code needed here
+    });
+
+FIXTURES WE CREATED:
+  loggedInPage        — page already logged in on inventory
+  cartPage            — logged in + one item added + cart opened
+  checkoutPage        — logged in + item added + checkout step 1 opened
+  checkoutOverviewPage— logged in + filled form + on step 2 overview
+  lockedOutPage       — attempted login as "locked_out_user"
+  multiCartPage       — logged in + 3 different items added to cart
+
+WHY IS IT USEFUL?
+  - Removes duplicate login code from every test file
+  - If the login process changes (e.g. new field added), you only update
+    the fixture in ONE place and all tests are fixed instantly
+  - Makes tests shorter and easier to read
+  - Ensures consistent starting state for each test
+
+
+───────────────────────────────────────────────────────────────────────────────
+  FEATURE 3 — MOCKING / NETWORK INTERCEPTION
+  Files: tests/Mocking/mock.spec.js
+         tests/Mocking/api.spec.js
+───────────────────────────────────────────────────────────────────────────────
+WHAT IS IT?
+  Mocking means intercepting network requests that the browser makes and
+  replacing the real response with a fake one you control.
+  Playwright uses page.route() to intercept requests.
+
+HOW DOES IT WORK?
+  await page.route('**/inventory.html', route => {
+    route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<h1>Mocked Page</h1>'
+    });
+  });
+  // Now when the browser tries to load inventory.html, it gets our fake HTML
+
+TYPES OF MOCKING WE USED:
+  route.fulfill()    — replace the response with custom data
+  route.abort()      — block the request entirely (e.g. block all images)
+  route.continue()   — let the request go through (e.g. with added delay)
+  route.fetch()      — fetch the real response, then modify its headers
+
+EXAMPLES FROM OUR PROJECT:
+  - Replace the inventory page with custom HTML and check it loads
+  - Block all PNG/JPG images and verify the page structure still works
+  - Simulate a slow network (500ms delay) and verify login still works
+  - Intercept login endpoint to return 401 and verify user stays on login
+
+WHY IS IT USEFUL?
+  - Test error states (404, 500, 401) without breaking the real server
+  - Test slow network conditions without throttling your internet
+  - Test what happens if an API returns unexpected data
+  - Makes tests independent from the backend — tests run faster and
+    don't fail because of server downtime
+
+
+───────────────────────────────────────────────────────────────────────────────
+  FEATURE 4 — NAVIGATION TESTING
+  Files: tests/Navigation/navigation.spec.js
+───────────────────────────────────────────────────────────────────────────────
+WHAT IS IT?
+  Navigation testing verifies that clicking links and buttons takes the
+  user to the correct page, and that the browser URL updates properly.
+
+KEY METHODS USED:
+  page.goto('https://...')       — navigate to a URL
+  page.click('selector')         — click a button or link
+  page.waitForURL(/pattern/)     — wait until URL matches a pattern
+  expect(page).toHaveURL(...)    — assert the current URL
+  expect(page).toHaveTitle('...') — assert the browser tab title
+
+NAVIGATION FLOWS WE TESTED:
+  - Login → lands on /inventory.html
+  - Click cart icon → goes to /cart.html
+  - Click "Continue Shopping" → goes back to /inventory.html
+  - Click product name → goes to /inventory-item.html
+  - Click "Back to Products" → returns to /inventory.html
+  - Full checkout flow: inventory → cart → step 1 → step 2 → complete
+  - Burger menu → Logout → returns to login page (/)
+  - Burger menu → About → navigates to saucelabs.com
+
+WHY IS IT USEFUL?
+  - Ensures users can actually reach all pages in the application
+  - Catches broken links and misconfigured routes
+  - Verifies the back/forward flow works correctly
+  - Confirms redirects work (e.g. logged-out user can't access inventory)
+
+
+───────────────────────────────────────────────────────────────────────────────
+  FEATURE 5 — FORM TESTING & INPUT VALIDATION
+  Files: tests/Forms/checkout.spec.js
+───────────────────────────────────────────────────────────────────────────────
+WHAT IS IT?
+  Form testing verifies that input forms work correctly — that they enforce
+  required fields, show the right error messages, accept valid data,
+  and submit successfully.
+
+KEY METHODS USED:
+  page.fill('selector', 'value')  — type text into an input field
+  page.click('selector')          — click submit/continue button
+  expect(input).toHaveValue('...')— check what's currently typed in a field
+  expect(input).toBeEditable()    — check the field can be typed into
+  expect(error).toContainText()   — check the validation error message
+
+FORM TESTS WE WROTE:
+  Visibility:
+    - Checkout form has three input fields (first name, last name, postal code)
+    - All fields are visible and editable
+
+  Validation errors:
+    - Submit empty form → "First Name is required"
+    - Submit with only first name → "Last Name is required"
+    - Submit with first + last name only → "Postal Code is required"
+    - Error message disappears when the X button is clicked
+
+  Successful submission:
+    - Fill all fields with valid data → advances to checkout overview
+    - Order summary shows the correct item
+    - Clicking Finish shows "Thank you for your order!"
+
+  Cancel behaviour:
+    - Cancel button on checkout form returns user to the cart
+
+WHY IS IT USEFUL?
+  - Ensures users cannot submit broken/incomplete data
+  - Verifies error messages are clear and appear at the right time
+  - Confirms the happy path (valid data) works end-to-end
+  - Guards against regressions — if a developer accidentally removes
+    validation, the test catches it immediately
+
+
+───────────────────────────────────────────────────────────────────────────────
+  FEATURE 6 — PAGE OBJECT MODEL (POM)
+  Files: tests/PageObjects/pages.js
+         tests/PageObjects/pom.spec.js
+───────────────────────────────────────────────────────────────────────────────
+WHAT IS IT?
+  The Page Object Model is a design pattern where each page of the web app
+  is represented as a JavaScript class. The class holds:
+    - All the locators (selectors) for that page's elements
+    - Methods that perform actions on that page (e.g. login(), addToCart())
+
+  Tests then call these classes instead of writing raw selectors.
+
+EXAMPLE:
+  Without POM (repeated in every test):
+    await page.fill('#user-name', 'standard_user');
+    await page.fill('#password', 'secret_sauce');
+    await page.click('#login-button');
+
+  With POM (clean and reusable):
+    const loginPage = new LoginPage(page);
+    await loginPage.loginAsStandardUser();
+
+CLASSES WE CREATED:
+  LoginPage            — username, password, login button, error message
+                         Methods: goto(), login(), loginAsStandardUser()
+
+  InventoryPage        — title, items, cart link, cart badge, burger menu
+                         Methods: addToCartByName(), goToCart(), logout()
+
+  CartPage             — title, cart items, item names, checkout button
+                         Methods: checkout(), continueShopping()
+
+  CheckoutPage         — first name, last name, postal code, continue/cancel
+                         Methods: fillForm(), submit()
+
+  CheckoutOverviewPage — title, item name, total label, finish button
+                         Methods: finish()
+
+  OrderCompletePage    — confirmation header and text, back home button
+
+WHY IS IT USEFUL?
+  - MAINTAINABILITY: If a selector changes (e.g. #user-name becomes #username),
+    you update it in ONE place (the class) and every test is fixed
+  - READABILITY: Tests read like plain English — loginPage.loginAsStandardUser()
+    is clearer than three lines of fill/click
+  - REUSABILITY: The same LoginPage class is used across dozens of test files
+  - ORGANISATION: Separates "how to interact with the page" from
+    "what to test about the page"
+
+
+───────────────────────────────────────────────────────────────────────────────
+  COMPLETE WORKFLOW DEMO FILE
+  File: tests/WorkflowDemo/workflow.spec.js
+───────────────────────────────────────────────────────────────────────────────
+This single file contains ALL 6 features in one place, clearly labelled
+with test.describe() blocks. Use this file when demoing to the group.
+
+  test.describe('Feature 1 – Assertions', ...)
+  test.describe('Feature 2 – Fixtures', ...)       ← uses loggedIn fixture
+  test.describe('Feature 3 – Mocking', ...)
+  test.describe('Feature 4 – Navigation', ...)
+  test.describe('Feature 5 – Form Testing', ...)
+  test.describe('Feature 6 – Page Object Model', ...)
+
+The last test in the file ("End-to-end purchase using Page Object classes")
+is the best demo test — it shows a complete user journey using POM classes.
+
+
+───────────────────────────────────────────────────────────────────────────────
+  HOW TO RUN THE TESTS
+───────────────────────────────────────────────────────────────────────────────
+Run all tests (all browsers):
+  npx playwright test
+
+Run all tests with 4 workers (more stable):
+  npx playwright test --workers=4
+
+Run only one file:
+  npx playwright test tests/WorkflowDemo/workflow.spec.js
+
+Run only one browser:
+  npx playwright test --project=chromium
+
+Open the HTML report after running:
+  npx playwright show-report
+
+
+───────────────────────────────────────────────────────────────────────────────
+  QUALITY BENEFITS SUMMARY (for viva questions)
+───────────────────────────────────────────────────────────────────────────────
+Q: Why is automated testing better than manual testing?
+A: Automated tests run in seconds, can test all browsers at once, never
+   forget a step, and run on every code change. Manual testing is slow,
+   error-prone, and cannot scale.
+
+Q: What quality benefit does Playwright provide?
+A: It catches regressions (broken features) immediately. If a developer
+   changes the login button ID, the test fails right away instead of a
+   user discovering the login is broken in production.
+
+Q: Why use Fixtures?
+A: Removes duplicated setup code. One change to the fixture fixes all tests
+   that use it. Makes tests shorter and easier to read.
+
+Q: Why use Mocking?
+A: Lets you test error conditions (server errors, slow networks) that are
+   hard or impossible to trigger on a real server. Tests become independent
+   of the backend and run faster.
+
+Q: Why use the Page Object Model?
+A: When the UI changes, you only update the selector in one class instead of
+   in every test file. Tests are more readable and maintainable.
+
+Q: What is the difference between a locator and a selector?
+A: A selector is the raw CSS/XPath string (e.g. '#login-button').
+   A locator is Playwright's smart wrapper around a selector — it
+   auto-waits for the element to be ready before interacting with it.
+
+Q: What does expect().toHaveCount(6) do?
+A: It asserts that exactly 6 elements matching the locator exist on the page.
+   If there are 5 or 7, the test fails with a clear message.
+
+Q: What browsers does Playwright test on?
+A: Chromium (Chrome/Edge), Firefox, and WebKit (Safari). Our config runs
+   all three, so we catch browser-specific bugs automatically.
+
+
+───────────────────────────────────────────────────────────────────────────────
+  PROJECT FOLDER STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+Playwright Testing/
+├── playwright.config.js        — global config (timeout, browsers, reporters)
+├── package.json                — project dependencies
+├── tests/
+│   ├── Assertions/             — Feature 1: expect() assertion tests
+│   │   ├── login.spec.js
+│   │   ├── cart.spec.js
+│   │   └── product.spec.js
+│   ├── Fixtures/               — Feature 2: test.extend() fixture tests
+│   │   ├── fixtures.js         ← defines all fixtures
+│   │   ├── cart.spec.js
+│   │   ├── checkout-overview.spec.js
+│   │   ├── locked-out.spec.js
+│   │   └── multi-cart.spec.js
+│   ├── Mocking/                — Feature 3: page.route() network mocking
+│   │   ├── mock.spec.js
+│   │   └── api.spec.js
+│   ├── Navigation/             — Feature 4: page navigation & URL testing
+│   │   └── navigation.spec.js
+│   ├── Forms/                  — Feature 5: form input & validation testing
+│   │   └── checkout.spec.js
+│   ├── PageObjects/            — Feature 6: Page Object Model pattern
+│   │   ├── pages.js            ← all page classes defined here
+│   │   └── pom.spec.js
+│   └── WorkflowDemo/           — All 6 features in one demo file
+│       └── workflow.spec.js    ← USE THIS FOR THE DEMO
+└── playwright-report/          — HTML test report (open after running tests)
+
+═══════════════════════════════════════════════════════════════════════════════
