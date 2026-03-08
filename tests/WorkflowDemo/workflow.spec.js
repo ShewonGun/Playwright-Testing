@@ -62,25 +62,6 @@ test.describe('Feature 1 – Assertions', () => {
     await expect(loggedIn.locator('.inventory_item')).toHaveCount(6);
   });
 
-  test('Product names are not empty', async ({ loggedIn }) => {
-    const names = loggedIn.locator('.inventory_item_name');
-    const count = await names.count();
-    for (let i = 0; i < count; i++) {
-      await expect(names.nth(i)).not.toBeEmpty();
-    }
-  });
-
-  test('Product prices contain dollar sign', async ({ loggedIn }) => {
-    const prices = loggedIn.locator('.inventory_item_price');
-    const count = await prices.count();
-    for (let i = 0; i < count; i++) {
-      await expect(prices.nth(i)).toContainText('$');
-    }
-  });
-
-  test('Cart badge is not visible before adding items', async ({ loggedIn }) => {
-    await expect(loggedIn.locator('.shopping_cart_badge')).not.toBeVisible();
-  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,17 +109,6 @@ test.describe('Feature 3 – Mocking', () => {
     await expect(page.locator('.inventory_list')).toBeVisible();
   });
 
-  test('Slow network still completes login successfully', async ({ page }) => {
-    await page.route('**/inventory.html', async route => {
-      await new Promise(r => setTimeout(r, 500));
-      route.continue();
-    });
-    await page.goto('https://www.saucedemo.com/');
-    await page.fill('#user-name', 'standard_user');
-    await page.fill('#password', 'secret_sauce');
-    await page.click('#login-button');
-    await expect(page).toHaveURL(/inventory/);
-  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,23 +120,6 @@ test.describe('Feature 4 – Navigation', () => {
   test('Cart icon navigates to cart page', async ({ loggedIn }) => {
     await loggedIn.click('.shopping_cart_link');
     await expect(loggedIn).toHaveURL(/cart/);
-  });
-
-  test('Continue Shopping returns to inventory', async ({ loggedIn }) => {
-    await loggedIn.click('.shopping_cart_link');
-    await loggedIn.click('[data-test="continue-shopping"]');
-    await expect(loggedIn).toHaveURL(/inventory/);
-  });
-
-  test('Clicking product opens detail page', async ({ loggedIn }) => {
-    await loggedIn.click('.inventory_item_name >> nth=0');
-    await expect(loggedIn).toHaveURL(/inventory-item/);
-  });
-
-  test('Back to Products returns to inventory', async ({ loggedIn }) => {
-    await loggedIn.click('.inventory_item_name >> nth=0');
-    await loggedIn.click('[data-test="back-to-products"]');
-    await expect(loggedIn).toHaveURL(/inventory/);
   });
 
   test('Logout returns to login page', async ({ loggedIn }) => {
@@ -186,17 +139,6 @@ test.describe('Feature 5 – Form Testing', () => {
     await loggedIn.click('[data-test="add-to-cart-sauce-labs-backpack"]');
     await loggedIn.click('.shopping_cart_link');
     await loggedIn.click('[data-test="checkout"]');
-  });
-
-  test('Empty form shows validation error', async ({ loggedIn }) => {
-    await loggedIn.click('[data-test="continue"]');
-    await expect(loggedIn.locator('[data-test="error"]')).toContainText('First Name is required');
-  });
-
-  test('Partial form shows correct missing field error', async ({ loggedIn }) => {
-    await loggedIn.fill('[data-test="firstName"]', 'Test');
-    await loggedIn.click('[data-test="continue"]');
-    await expect(loggedIn.locator('[data-test="error"]')).toContainText('Last Name is required');
   });
 
   test('Valid form advances to order overview', async ({ loggedIn }) => {

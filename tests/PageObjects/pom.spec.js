@@ -137,3 +137,39 @@ test('POM: Complete purchase workflow end-to-end', async ({ page }) => {
   await expect(completePage.confirmationHeader).toHaveText('Thank you for your order!');
   await expect(page).toHaveURL(/checkout-complete/);
 });
+
+test('POM: Cart checkout button navigates to checkout form', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.loginAsStandardUser();
+
+  const inventoryPage = new InventoryPage(page);
+  await page.waitForLoadState('domcontentloaded');
+  await inventoryPage.addToCartByName('sauce-labs-backpack');
+  await inventoryPage.goToCart();
+
+  const cartPage = new CartPage(page);
+  await cartPage.checkout();
+
+  await expect(page).toHaveURL(/checkout-step-one/);
+});
+
+test('POM: CheckoutPage submit with valid data advances to overview', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.loginAsStandardUser();
+
+  const inventoryPage = new InventoryPage(page);
+  await page.waitForLoadState('domcontentloaded');
+  await inventoryPage.addToCartByName('sauce-labs-backpack');
+  await inventoryPage.goToCart();
+
+  const cartPage = new CartPage(page);
+  await cartPage.checkout();
+
+  const checkoutPage = new CheckoutPage(page);
+  await checkoutPage.fillForm('Bob', 'Jones', '10001');
+  await checkoutPage.submit();
+
+  await expect(page).toHaveURL(/checkout-step-two/);
+});
